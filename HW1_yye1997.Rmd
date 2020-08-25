@@ -1,0 +1,63 @@
+---
+title: "Homework 17"
+author: "Youhui Ye"
+date: "8/24/2020"
+output: pdf_document
+---
+
+\section{Problem 1}
+
+\subsection{Part A}
+
+The things I wanted to learn from this course including:
+
+\begin{itemize}
+  \item How to collaborate with my teammates using Github;
+  \item How to create my own R package;
+  \item How to conduct statistical learning via R.
+\end{itemize}
+
+\subsection{Part B}
+
+\textbf{\textit{Beta}}$(\alpha, \beta)$
+\begin{align}
+  f(x|\alpha, \beta) = \frac{1}{B(\alpha,\beta)}x^{\alpha-1}(1-x)^{\beta-1},\quad 0 \leq x \leq 1, \quad \alpha > 0, \quad \beta > 0 
+\end{align}
+
+\textbf{\textit{Exponential}}$(\beta)$
+\begin{align}
+  f(x|\beta) = \frac{1}{\beta}e^{-x/\beta},\quad 0 \leq x < \infty, \quad \beta > 0 
+\end{align}
+
+\textbf{\textit{Gamma}}$(\alpha, \beta)$
+\begin{align}
+  f(x|\alpha, \beta) = \frac{1}{\Gamma(\alpha)\beta^\alpha}x^{\alpha-1}e^{-x/\beta}, \quad 0 \leq x < \infty, \quad \alpha, \beta > 0 
+\end{align}
+
+\section{Problem 3: Summary}
+
+\textbf{Ten Simple Rules for Reproducible Computational Research}
+
+\begin{itemize}
+  \item \textbf{For each result, keep track of how it was produced.} When we are very devoted to producing nice results for our projects, we sometimes forget to record how we get them.
+  \item \textbf{Avoid manual data manipulation steps.} Sometimes manual modifications can be more convenient than writing a command script or programming. And avoiding manual steps might cause a lot more workload. 
+  \item \textbf{Archive the exact versions of all external programs used.} Previous code files may not be executable in newest versions. Even though we recorded what we used, it might still be hard to reproduce the results. 
+  \item \textbf{Version control all custom scripts. } R is an open source software, which means its computational rules change by individual. 
+  \item \textbf{Record all intermediate results, when possible in standardized formats.} If the data is massive, it is hard to store intermediate results in each step.
+  \item \textbf{For analyses that include randomness, note underlying random seeds.} Sometimes we have good results only when we use a certain random seed.
+  \item \textbf{Always store raw data behind plots.} If multiple plots are produced in one project, we may need large space to store them.
+  \item \textbf{Generate hierarchical analysis output, allowing layers of increasing detail to be inspected.} In case like machine learning, some intermediate details are not accessible. 
+  \item \textbf{Connect textual statements to underlying results.} Different statements can be produced on same plot depending on person and version. Thus, choosing the best might be a problem.
+  \item \textbf{Provide public access to scripts, runs, and results.} Thanks to Internet, providing scripts and results to public is relatively easy today. However, it is still hard to provide large data set. 
+\end{itemize}
+
+\section{Problem 4}
+
+```{r}
+library(ggplot2)
+df <- iris
+ggplot(data = df, mapping = aes(x = Sepal.Length, y = Sepal.Width)) + geom_point()
+ggplot(data = df, mapping = aes(Sepal.Width)) + geom_histogram(bins = 20)
+
+```
+

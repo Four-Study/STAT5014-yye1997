@@ -1,0 +1,205 @@
+---
+title: "HW2_yye1997"
+author: "Youhui Ye"
+date: "8/30/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = TRUE, eval = TRUE, cache = TRUE)
+library(data.table)
+library(tidyverse)
+```
+
+\section{Problem 3}
+
+From my point of view, I will definitely use version control on my future's programming. Even though I finish projects on my own, it give me chance to make mistakes and to test a new feature. Needless to say, it allows us to develop different versions when we are cooperating with others. 
+
+\section{Problem 4}
+
+\subsection{a.}
+
+First, we need to get the data from the link above:
+
+```{r girder_import, cache=FALSE}
+## getting "https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/fullgirder.dat"
+# girder_data_raw <- fread("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/fullgirder.dat")
+# saveRDS(girder_data_raw, "girder_data_raw.RDS")
+girder_data_raw <- readRDS("girder_data_raw.RDS")
+```
+
+Need to tidy the data, basic issue is sites are columns, need to push them into a column. 
+
+```{r girder_tidy_baseR, cache=FALSE}
+## stack data and fix columns
+girder_data_tidy_br <- data.frame(girder=rep(girder_data_raw$Girder,2), 
+                               stack(girder_data_raw[,-1]))
+colnames(girder_data_tidy_br) <- c("girder", "value", "method")
+```
+
+We have converted the data frames to tidy data frames using the base functions. Here is a summary of the data:
+
+```{r summary_baseR, echo=FALSE}
+knitr::kable(summary(girder_data_tidy_br))
+```
+
+```{r boxplot, echo=FALSE}
+boxplot(girder_data_tidy_br$value~girder_data_tidy_br$method, xlab = 'method', ylab = 'value')
+```
+
+Now, we use tidyverse to tidy data frames again.
+
+```{r girder_data_tidyverse, cache=FALSE}
+## stack and fix column names using tidyverse 
+girder_data_tidy_tv <- girder_data_raw %>% gather(key="method", value="value", Aarau:Zurich)
+```
+
+
+
+
+\subsection{b.}
+
+First, we need to get the data from the link above:
+
+```{r LongJump_import, cache=FALSE}
+## getting "https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat"
+# LongJump_data_raw <- fread("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/LongJumpData.dat")
+# names(LongJump_data_raw) <- make.unique(names(LongJump_data_raw))
+# saveRDS(LongJump_data_raw, "LongJump_data_raw.RDS")
+LongJump_data_raw <- readRDS("LongJump_data_raw.RDS")
+```
+
+Need to tidy the data, basic issues are "LongJump" was regarded as two separated words and 2 variables were split into several parts. 
+
+```{r LongJump_tidy_baseR, cache=FALSE}
+## stack data and fix columns
+LongJump_data_tidy_br <- data.frame(stack(LongJump_data_raw[,c(1,3,5,7)]), 
+                                    stack(LongJump_data_raw[,c(2,4,6,8)]))
+LongJump_data_tidy_br <- LongJump_data_tidy_br[-c(23,24),c(1,3)]
+colnames(LongJump_data_tidy_br) <- c("Year", "LongJump")
+```
+
+We have converted the data frames to tidy data frames using the base functions. Here is a summary of the data:
+
+
+```{r summary_LongJump, echo=FALSE}
+knitr::kable(summary(LongJump_data_tidy_br))
+```
+
+Also, the scatter plot and the fitted line show a positive relationshup between 2 variables.
+
+```{r boxplot_LongJump, echo=FALSE}
+plot(LongJump_data_tidy_br$LongJump~LongJump_data_tidy_br$Year, xlab = 'Year', ylab = 'Long Jump')
+abline(lm(LongJump_data_tidy_br$LongJump~LongJump_data_tidy_br$Year), col = 'red')
+```
+Now, we use tidyverse to clean and tidy data again.
+
+```{r LongJump_data_tidyverse, cache=FALSE, warning=FALSE}
+## stack and fix column names using tidyverse 
+## making new names for the data set
+colnames(LongJump_data_raw) <- paste0(c("Year","LongJump"),rep(1:6,each=2))
+LongJump_data_tv <- LongJump_data_raw %>% 
+  melt( measure=patterns("^Year", "^LongJump"), 
+     value.name=c("Year", "LongJump"),na.rm =TRUE) %>%
+  select(-variable)
+  
+```
+
+
+
+\subsection{c.}
+
+First, we need to get the data from the link above:
+
+```{r bbw_import, cache=FALSE}
+## getting "https://https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat"
+# bbw_data_raw <- fread("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/BrainandBodyWeight.dat")
+# saveRDS(bbw_data_raw, "bbw_data_raw.RDS")
+bbw_data_raw <- readRDS("bbw_data_raw.RDS")
+```
+
+Need to tidy the data, basic issues are the same as the last one. 
+
+```{r bbw_tidy_baseR, cache=FALSE}
+bbw_data_tidy_br <- data.frame(stack(bbw_data_raw[,c(1,3,5)]), 
+                                    stack(bbw_data_raw[,c(2,4,6)]))
+bbw_data_tidy_br <- bbw_data_tidy_br[complete.cases(bbw_data_tidy_br),c(1,3)]
+colnames(bbw_data_tidy_br) <- c("BodyWt", "BrainWt")
+```
+
+Here is a summary table of body and brain weight.
+
+```{r summary_bbw, echo=FALSE}
+knitr::kable(summary(bbw_data_tidy_br))
+```
+
+Also, the scatter plot and the fitted line show a positive relationship between 2 variables. There seem to be 2 outliers, 
+
+```{r boxplot_bbw, echo=FALSE}
+bbw_data_tidy_br <- bbw_data_tidy_br[bbw_data_tidy_br$BrainWt < 1000,]
+plot(bbw_data_tidy_br$BodyWt~bbw_data_tidy_br$BrainWt, xlab = 'Brain Weight', ylab = 'Body Weight')
+abline(lm(bbw_data_tidy_br$BodyWt~bbw_data_tidy_br$BrainWt), col = 'red')
+```
+Now, we use tidyverse package to tidy this data set again.
+
+```{r bbw_data_tidyverse, cache=FALSE, warning=FALSE}
+colnames(bbw_data_raw) <- paste0(c("BodyWt","BrainWt"),rep(1:6,each=2))
+bbw_data_tv <- bbw_data_raw %>% 
+  melt( measure=patterns("^BodyWt", "^BrainWt"), 
+     value.name=c("BodyWt", "BrainWt"),na.rm =TRUE) %>%
+  select(-variable)
+```
+
+\subsection{d.}
+
+First, we need to get the data from the link above:
+
+```{r ty_import, cache=FALSE}
+## getting "https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat"
+# ty_data_raw <- fread("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/tomato.dat")
+# saveRDS(ty_data_raw, "ty_data_raw.RDS")
+ty_data_raw <- readRDS("ty_data_raw.RDS")
+```
+
+Need to tidy the data, basic issues are densities are columns and one cell contains multiple values. 
+
+```{r ty_tidy_baseR, cache=FALSE}
+## creating new variables
+Density <- rep(c("10000","20000","30000"), each = 3,times = 2)
+Variety <- rep(c("Ife", "PusaEarlyDwarf"), each = 9)
+Yield <- rep(0,18)
+for (i in 1:2) {
+  for (j in 2:4) {
+    Yield[((i-1)*9 + (j-2)*3 + 1): ((i-1)*9 + (j-2)*3 + 3)] <- +
+      as.numeric(unlist(strsplit(as.character(ty_data_raw[i,j,with=FALSE]),',')))
+  }
+}
+
+ty_data_br <- data.frame(Variety, Density, Yield)
+```
+
+Here is a summary table of tomato yield.
+
+```{r summary_TomatoYield, echo=FALSE}
+knitr::kable(summary(ty_data_br))
+```
+
+Also, the boxplot by density and variety shows apparent trends.
+
+```{r boxplot_TomatoYield, echo=FALSE}
+boxplot(Yield ~ Density * Variety, data = ty_data_br)
+```
+Now, we use tidyverse package to tidy this data set again.
+
+```{r TomatoYield_data_tidyverse, cache=FALSE}
+
+ty_data_tv <- ty_data_raw %>% 
+  separate_rows("10000") %>% 
+  separate_rows("20000","30000") %>% 
+  gather(key = "Density",value = "Yield", "10000":"30000") %>% 
+  distinct() %>% 
+  na_if("") %>% 
+  drop_na()
+
+```
+

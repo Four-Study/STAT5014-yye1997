@@ -21,37 +21,58 @@ From my point of view, I will definitely use version control on my future's prog
 
 First, we need to get the data from the link above:
 
-```{r girder_import, cache=FALSE}
-## getting "https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/fullgirder.dat"
-# girder_data_raw <- fread("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/fullgirder.dat")
-# saveRDS(girder_data_raw, "girder_data_raw.RDS")
-girder_data_raw <- readRDS("girder_data_raw.RDS")
+```{r sensory_import, cache=FALSE}
+## getting "https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat"
+sensory_data_raw <- read.csv("https://www2.isye.gatech.edu/~jeffwu/wuhamadabook/data/Sensory.dat")
+saveRDS(sensory_data_raw, "sensory_data_raw.RDS")
+sensory_data_raw <- readRDS("sensory_data_raw.RDS")
 ```
 
-Need to tidy the data, basic issue is sites are columns, need to push them into a column. 
+Need to tidy the data, basic issues are one cell has multiple values and operator, item are not columns. 
 
-```{r girder_tidy_baseR, cache=FALSE}
-## stack data and fix columns
-girder_data_tidy_br <- data.frame(girder=rep(girder_data_raw$Girder,2), 
-                               stack(girder_data_raw[,-1]))
-colnames(girder_data_tidy_br) <- c("girder", "value", "method")
+```{r sensory_tidy_baseR, cache=FALSE}
+## split every single value in one cell
+df <- data.frame(matrix(ncol = 6, nrow = 31))
+for (i in 1:6) {
+  df[,i] <- sapply(strsplit(as.character(sensory_data_raw$Operator), " "), `[`, i)
+}
+## modify column names
+colnames(df) <- df[1,]
+df <- df[-1,]
+## insert item indices
+for (i in 1:30) {
+  if (is.na(df[i,6])){
+    df[i,1:6] <- c(df[i-1,1],df[i,1:5])
+  }
+}
+sensory_data_br <- data.frame(as.factor(rep(rep(1:10, each = 3), 5)), stack(df[,2:6]))
+
+colnames(sensory_data_br) <- c("Item", "value", "Operator")
+## convert value to numeric type
+sensory_data_br$value <- as.numeric(sensory_data_br$value)
 ```
 
 We have converted the data frames to tidy data frames using the base functions. Here is a summary of the data:
 
 ```{r summary_baseR, echo=FALSE}
-knitr::kable(summary(girder_data_tidy_br))
+knitr::kable(summary(sensory_data_br))
 ```
 
 ```{r boxplot, echo=FALSE}
-boxplot(girder_data_tidy_br$value~girder_data_tidy_br$method, xlab = 'method', ylab = 'value')
+par(mfrow=c(1,2))
+boxplot(value~Operator, sensory_data_br)
+boxplot(value~Item, sensory_data_br)
 ```
 
 Now, we use tidyverse to tidy data frames again.
 
-```{r girder_data_tidyverse, cache=FALSE}
-## stack and fix column names using tidyverse 
-girder_data_tidy_tv <- girder_data_raw %>% gather(key="method", value="value", Aarau:Zurich)
+```{r sensory_data_tidyverse, cache=FALSE}
+## using tidyverse 
+sensory_data_tv <- sensory_data_raw %>% 
+  separate(,col = "Operator",into = c("Item",as.character(1:5)), sep=" ",fill = "left") %>%
+  fill("Item") %>%
+  slice(2:n()) %>%
+  gather(, key = "Operator", value = "value", -Item)
 ```
 
 
@@ -86,7 +107,7 @@ We have converted the data frames to tidy data frames using the base functions. 
 knitr::kable(summary(LongJump_data_tidy_br))
 ```
 
-Also, the scatter plot and the fitted line show a positive relationshup between 2 variables.
+Also, the scatter plot and the fitted line show a positive relationship between 2 variables.
 
 ```{r boxplot_LongJump, echo=FALSE}
 plot(LongJump_data_tidy_br$LongJump~LongJump_data_tidy_br$Year, xlab = 'Year', ylab = 'Long Jump')

@@ -154,10 +154,9 @@ Here is a summary table of body and brain weight.
 knitr::kable(summary(bbw_data_tidy_br))
 ```
 
-Also, the scatter plot and the fitted line show a positive relationship between 2 variables. There seem to be 2 outliers, 
+Also, the scatter plot and the fitted line show a positive relationship between 2 variables.
 
 ```{r boxplot_bbw, echo=FALSE}
-bbw_data_tidy_br <- bbw_data_tidy_br[bbw_data_tidy_br$BrainWt < 1000,]
 plot(bbw_data_tidy_br$BodyWt~bbw_data_tidy_br$BrainWt, xlab = 'Brain Weight', ylab = 'Body Weight')
 abline(lm(bbw_data_tidy_br$BodyWt~bbw_data_tidy_br$BrainWt), col = 'red')
 ```

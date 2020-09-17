@@ -69,10 +69,10 @@ Now, we use tidyverse to tidy data frames again.
 ```{r sensory_data_tidyverse, cache=FALSE}
 ## using tidyverse 
 sensory_data_tv <- sensory_data_raw %>% 
-  separate(,col = "Operator",into = c("Item",as.character(1:5)), sep=" ",fill = "left") %>%
+  separate(col = "Operator",into = c("Item",as.character(1:5)), sep=" ",fill = "left") %>%
   fill("Item") %>%
   slice(2:n()) %>%
-  gather(, key = "Operator", value = "value", -Item)
+  gather(key = "Operator", value = "value", -Item)
 ```
 
 

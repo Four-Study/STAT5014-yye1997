@@ -1,0 +1,199 @@
+---
+title: "Homework 3"
+author: "Youhui Ye"
+date: "9/13/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, include = TRUE, eval = TRUE, cache = FALSE)
+library(data.table)
+library(tidyverse)
+library(gridExtra)
+library(microbenchmark)
+
+```
+
+\section{Problem 3}
+
+I learned at least 3 things from the R programming style. First, we should write necessary comments to help others follow our codes. Second, we should use indent to indicate specific code parts. Third, it is important to name variables and functions decently. Specifically, I used to name variables in "camelCase" style. And I decided to follow Hadley Wickham's instruction, who recommended to use underscore between words. 
+
+\section{Problem 5}
+```{r Problem_5}
+summary_dat <- function(dat) {
+  ## Calculate means
+  mu1 <- mean(dat[,1])
+  mu2 <- mean(dat[,2])
+  ## Calculate standard deviations
+  sd1 <- sd(dat[,1])
+  sd2 <- sd(dat[,2])
+  ## Calculate the correlation
+  correlation <- cor(dat[,1], dat[,2])
+  result <- c(mu1, mu2, sd1, sd2, correlation)
+  return(result)
+}
+
+url <- "https://raw.githubusercontent.com/rsettlage/STAT_5014_Fall_2020/master/homework/HW3_data.rds"
+download.file(url,"HW3_data.rds", method="curl")
+dat5 <-readRDS("HW3_data.rds")
+
+
+summary_observers <- data.frame(matrix(NA, nrow = 13, ncol = 5))
+colnames(summary_observers) <- c("mean_dev1", "mean_dev2", "sd_dev1", "sd_dev2", "correlation")
+for (i in 1:13) {
+  summary_observers[i, ] <- summary_dat(dat5[dat5$Observer == i, 2:3])
+}
+```
+
+\subsection{a.}
+
+```{r summary_table}
+knitr::kable(summary_observers, digits = 3)
+
+## Check the results using group_by and summarise
+# dat5 %>% group_by(Observer) %>% 
+# summarise(mu1 = mean(dev1), mu2 = mean(dev2), sd1 = sd(dev1), sd2 = sd(dev2), correlation = cor(dev1, dev2))
+```
+
+From the summary table, we can say means, standard deviations and correlations are almost the same across all observers. 
+
+\subsection{b.}
+
+```{r boxplot}
+par(mfrow = c(1,2))
+boxplot(dev1 ~ Observer, data = dat5)
+boxplot(dev2 ~ Observer, data = dat5)
+```
+
+However, boxplots reveal more information about data distribution, from which we know observers recorded various observations. 
+
+\subsection{c.}
+
+```{r violin plot, fig.height = 3, fig.width=5, fig.align = "center"}
+ggplot(data = dat5) + geom_violin(mapping = aes(factor(Observer), dev1))
+ggplot(data = dat5) + geom_violin(mapping = aes(factor(Observer), dev2))
+```
+
+Distributions of "dev" variables vary with each observer. As you can see, some observers' data are nearly normal while others are bimodal. Compared to boxplots and summary statistics, violin plots does give us a better portrait of data distribution.
+
+\subsection{d.}
+
+```{r ggplot}
+ggplot(dat5, aes(x=dev1,y=dev2)) + geom_point() + facet_wrap(Observer~.)
+```
+
+I saw 10 patterns (chaos, concentric circles, star, dinosaur, etc.). What I learned is never draw a conclusion before you have a full understanding of the data you are analyzing. Means and standard deviations are just brief summary of our data and they have abandoned most of information. Therefore, they are not trustable under this kind of scenarios. 
+
+\section{Problem 6}
+```{r create_function_and_calculate_result}
+calculate_integral <- function(width) {
+  x <- seq(0, 1, width)
+  ## discard the first one
+  right_sum <- width * sum(exp(-x[-1]^2/2))
+  
+  ## discard the last one
+  #left_sum <- width * sum(exp(-x[-length(x)]^2/2))
+  return(right_sum)
+}
+
+## Initiate value of slice width
+width <- 0.2
+
+## left_sum - right_sum = width * (largest_function_value - smallest_function_value) 
+while (width * (exp(0) - exp(-1/2)) >= 1e-6) {
+  width <- width / 2
+  result <- calculate_integral(width)
+  cat("Integral: ", result, "Slice Width Used: ", width, "\n")
+}
+
+
+```
+
+Slice width 1.525879e-06 is necessary to get desired answer.
+
+\section{Problem 7}
+
+```{r function_plot, fig.height = 3, fig.width=5, fig.align = "center"}
+x <- seq(-8, 1, 0.01)
+y <- 3^x - sin(x) + cos(5*x)
+plot(x, y, type = 'l', main = "f(x) = 3^x - sin(x) + cos(5x)")
+```
+Apparently, this function has no more than one root. The choice of start point and interval would have big influence on the result, so the function would take interval as one parameter and start the loop at mid of the interval. Also, tolerance should be treated as an input.
+
+```{r solve_for_the_root, fig.height = 3, fig.width=5, fig.align = "center"}
+## target function
+f <- function(x) {
+  value <- 3^x - sin(x) + cos(5*x)
+  return(value)
+}
+
+## derivative of target function
+grad <- function(x) {
+  value <- log(3) * 3^x - cos(x) - 5*sin(5*x)
+  return(value)
+}
+
+find_the_root <- function(tol, interval) {
+  ## tolerance is a single value while interval is a vector of dimension 2
+  left <- interval[1]
+  right <- interval[2]
+  initial_point <- (left + right) / 2
+  x <- seq(left, right, 0.01)
+  y <- 3^x - sin(x) + cos(5*x)
+  plot(x, y, type = 'l', main = "Newton's Method")
+  points(initial_point, f(initial_point), pch = 19, col = 'red', cex = 0.7)
+  text(initial_point, f(initial_point) - 0.1, labels="x0", cex = 0.7)
+  ## use while loop to solve the problem
+  prev <- initial_point
+  i <- 1
+  while (abs(f(prev)) > tol ) {
+    ## calculate a new point
+    curr <- prev - f(prev) / grad(prev)
+    ## if the update goes beyond the given interval, assign limit to it
+    if (curr < left) {
+      curr <- left
+    } else if (curr > right) {
+      curr <- right
+    }
+    ## update the previous point and draw it on the plot
+    prev <- curr
+    points(curr, f(curr), pch = 19, col = 'red', cex = 0.7)
+    label <- paste0("x",i)
+    text(curr, f(curr)-0.1, labels=label, cex = 0.7)
+    i <- i + 1
+  }
+  cat("Tolerance Used:", tol, "\n")
+  cat("Interval Used:", "(", interval[1], ",", interval[2], ")", "\n")
+  cat("Final Answer:", curr, "  Function value:", f(curr))
+}
+find_the_root(0.001, c(-3.5, -2))
+```
+
+\section{Problem 8}
+```{r Problem_8}
+set.seed(12345)
+X <- cbind(rep(1,100),rep.int(1:10,time=10)) 
+beta <- c(4,5)
+y <- X%*%beta + rnorm(100)
+
+mu <- mean(y)
+ones <- rep(1, 100)
+loop_sum <- function() {
+  summation <- 0
+  for (i in 1:length(y)) {
+    summation <- summation + (y[i] - mu)^2
+  }
+  return(summation)
+}
+
+matrix_sum <- function() {
+  summation <- t((y - mu) * (y - mu)) %*% ones
+  return(summation)
+}
+
+microbenchmark(loop_sum, times = 100)
+microbenchmark(matrix_sum, times = 100)
+```
+
+
+

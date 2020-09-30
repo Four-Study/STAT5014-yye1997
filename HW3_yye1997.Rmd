@@ -37,8 +37,9 @@ url <- "https://raw.githubusercontent.com/rsettlage/STAT_5014_Fall_2020/master/h
 download.file(url,"HW3_data.rds", method="curl")
 dat5 <-readRDS("HW3_data.rds")
 
-
-summary_observers <- data.frame(matrix(NA, nrow = 13, ncol = 5))
+## Calculate the number of obersers
+num_observer <- length(unique(dat5$Observer))
+summary_observers <- data.frame(matrix(NA, nrow = num_observer, ncol = 5))
 colnames(summary_observers) <- c("mean_dev1", "mean_dev2", "sd_dev1", "sd_dev2", "correlation")
 for (i in 1:13) {
   summary_observers[i, ] <- summary_dat(dat5[dat5$Observer == i, 2:3])
@@ -190,9 +191,10 @@ matrix_sum <- function() {
   summation <- t((y - mu) * (y - mu)) %*% ones
   return(summation)
 }
-
-microbenchmark(loop_sum, times = 100)
-microbenchmark(matrix_sum, times = 100)
+loop_sum()
+matrix_sum()
+set.seed(123456)
+microbenchmark(loop_sum,matrix_sum,  times = 100)
 ```
 
 

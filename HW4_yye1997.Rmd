@@ -1,0 +1,221 @@
+---
+title: "Homework 4"
+author: "Youhui Ye"
+date: "10/5/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r problem_1}
+set.seed(1256)
+theta <- as.matrix(c(1,2),nrow=2)
+X <- cbind(1,rep(1:10,10))
+h <- X%*%theta+rnorm(100,0,0.2)
+## initialization for loop
+m <- nrow(X)
+theta0old <- Inf
+theta1old <- Inf
+theta0new <- 0
+theta1new <- 0
+alpha <- 0.05
+tol <- 1e-05
+while ((abs(theta0old - theta0new) > tol) || (abs(theta1old - theta1new) > tol)) {
+  theta0old <- theta0new
+  theta1old <- theta1new
+  theta0new <- theta0old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,1]
+  theta1new <- theta1old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,2]
+}
+cat("Tolerance: ", tol)
+cat("Step size: ", alpha)
+cat("estimated theta0: ", theta0new)
+cat("estimated theta1: ", theta1new)
+
+m1 <- lm(h ~ 0 + X)
+m1$coefficients
+```
+
+The answer is very close to what "lm" function gives me.
+
+\section{Problem 2}
+
+\subsection{Part a}
+
+```{r problem_2_a, eval=FALSE}
+## set up
+theta0s <- seq(0, 2, length.out = 100)
+theta1s <- seq(1, 3, length.out = 100)
+thetas <- expand.grid(theta0s, theta1s)
+## wrap up the function to implement parallel computing
+my_gradient_descent <- function(init) {
+  ## set up
+  m <- 100
+  alpha <- 1e-07
+  tol <- 1e-09
+  theta0old <- Inf
+  theta1old <- Inf
+  theta0new <- init[1]
+  theta1new <- init[2]
+  print(init)
+  ## iteration time
+  i <- 0
+  while ((abs(theta0old - theta0new) > tol) || (abs(theta1old - theta1new) > tol)) {
+    theta0old <- theta0new
+    theta1old <- theta1new
+    theta0new <- theta0old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,1]
+    theta1new <- theta1old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,2]
+    i <- i + 1
+    if(i > 5e06) break
+  }
+  print("Yes")
+  return(c(theta0new, theta1new, i))
+}
+## Using parallel computing
+library(parallel)
+cores <- detectCores() - 1
+cl <- makeCluster(cores)
+clusterExport(cl, "X")
+clusterExport(cl, "h")
+system.time(result <- parApply(cl, thetas, 1, my_gradient_descent))
+stopCluster(cl)
+```
+
+\subsection{Part b}
+
+I do not think it is a good stopping rule. The problem is that the loop may never stop when it reaches a local
+
+\subsection{Part c}
+
+The algorithm is better used for smooth function. When the function value varies vigorously and the step size is too small, it is very likely to get stuck in a local minimum. Also, there is a lot of work in choosing start values.
+
+\section{Problem 3}
+
+```{r problem3}
+beta_hat <- solve(t(X) %*% X) %*% t(X) %*% h
+```
+
+Least square estimation is subject to find minimizer of $(y - X\hat{\beta})'(y - X\hat{\beta})$. If we take derivative with respect to this function, we have $-2X'(y - X\hat{\beta}) = 0$. The answer is exactly $ (X'X)^{-1}X'y $.
+
+
+\section{Problem 4}
+
+```{r problem_4_set_up}
+set.seed(12456)
+G <- matrix(sample(c(0,0.5,1),size=16000,replace=T),ncol=10)
+R <- cor(G) # R: 10 * 10 correlation matrix of G
+C <- kronecker(R, diag(1600)) # C is a 16000 * 16000 block diagonal matrix 
+id <- sample(1:16000,size=932,replace=F)
+q <- sample(c(0,0.5,1),size=15068,replace=T) # vector of length 15068
+A <- C[id, -id] # matrix of dimension 932 * 15068
+B <- C[-id, -id] # matrix of dimension 15068 * 15068
+p <- runif(932,0,1)
+r <- runif(15068,0,1)
+C <- NULL #save some memory space
+```
+
+\subsection{Part a}
+```{r Problem_4_a, eval = FALSE}
+object.size(A)
+object.size(B)
+## around 15 mins
+system.time(y <- p + A %*% solve(B) %*% (q - r)) 
+```
+
+\subsection{Part b}
+
+I think the inverse of matrix can be completed independently and in a different way. And the multiplication of A and inverse of B can be completed faster.
+
+\subsection{Part c}
+
+```{r Problem_4_c, message=FALSE}
+## Use c++ code to speed up computing speed
+require(RcppArmadillo)
+require(RcppEigen)
+require(inline)
+
+## matrix multiplication by c++
+txt <- "
+using Eigen::Map;
+using Eigen::MatrixXd;
+using Rcpp::as;
+NumericMatrix tm22(tm2);
+NumericMatrix tmm(tm);
+const MatrixXd ttm(as<MatrixXd>(tmm));
+const MatrixXd ttm2(as<MatrixXd>(tm22));
+
+MatrixXd prod = ttm*ttm2;
+return(wrap(prod));
+"
+
+mul_cpp <- cxxfunction(signature(tm="NumericMatrix",
+                                 tm2="NumericMatrix"),
+                                 plugin="RcppEigen",
+                                 body=txt)
+
+## matrix inversion by c++
+txt2 <- "
+using namespace Rcpp;
+using Eigen::Map;
+using Eigen::VectorXd;
+using Eigen::MatrixXd;
+typedef Map<MatrixXd> MapMatd;
+const MapMatd tmm(as<MapMatd>(tm));
+const MatrixXd tmm_inv = tmm.inverse() ;
+return( wrap(tmm_inv));"
+
+solve_cpp <- cxxfunction(signature(tm="NumericMatrix"),
+                 plugin="RcppEigen",
+                 body=txt2)
+## around 13.25 mins, slightly faster
+system.time({
+  B_inv <- solve_cpp(B)
+  y <- p + mul_cpp( mul_cpp(A, B_inv), as.matrix(q - r))
+})
+
+```
+
+
+\section{Problem 5}
+
+\subsection{a}
+
+```{r problem_5_a}
+compute_proportion <- function(vec) {
+  sum(vec) / length(vec)
+}
+```
+
+\subsection{b}
+
+```{r problem_5_b}
+set.seed(12345)
+P4b_data <- matrix(rbinom(10, 1, prob = (31:40)/100), nrow = 10, ncol = 10, byrow = FALSE)
+```
+
+\subsection{c}
+
+```{r problem_5_c}
+## calculate by row
+apply(P4b_data, 1, compute_proportion)
+## calculate by column
+apply(P4b_data, 2, compute_proportion)
+```
+
+\subsection{d}
+
+```{r problem_5_d}
+generate_flips <- function(prob) {
+  rbinom(10, 1, prob)
+}
+probabilities <- matrix((31:40) / 100, ncol = 10)
+P4d_data <- apply(probabilities, 2, generate_flips)
+## calculate by row
+apply(P4d_data, 1, compute_proportion)
+## calculate by column
+apply(P4d_data, 2, compute_proportion)
+```
+
+
+

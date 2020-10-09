@@ -9,11 +9,13 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+\section{Problem 1}
+
 ```{r problem_1}
 set.seed(1256)
 theta <- as.matrix(c(1,2),nrow=2)
 X <- cbind(1,rep(1:10,10))
-h <- X%*%theta+rnorm(100,0,0.2)
+h <- as.vector(X%*%theta+rnorm(100,0,0.2))
 ## initialization for loop
 m <- nrow(X)
 theta0old <- Inf
@@ -25,8 +27,9 @@ tol <- 1e-05
 while ((abs(theta0old - theta0new) > tol) || (abs(theta1old - theta1new) > tol)) {
   theta0old <- theta0new
   theta1old <- theta1new
-  theta0new <- theta0old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,1]
-  theta1new <- theta1old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,2]
+  pred <- X[,1] * theta0old + X[, 2] * theta1old
+  theta0new <- theta0old - alpha / m * sum(pred - h) 
+  theta1new <- theta1old - alpha / m * sum((pred - h) * X[,2])
 }
 cat("Tolerance: ", tol)
 cat("Step size: ", alpha)
@@ -37,7 +40,7 @@ m1 <- lm(h ~ 0 + X)
 m1$coefficients
 ```
 
-The answer is very close to what "lm" function gives me.
+The answer is very close to what "lm" function gives.
 
 \section{Problem 2}
 
@@ -49,38 +52,63 @@ theta0s <- seq(0, 2, length.out = 100)
 theta1s <- seq(1, 3, length.out = 100)
 thetas <- expand.grid(theta0s, theta1s)
 ## wrap up the function to implement parallel computing
-my_gradient_descent <- function(init) {
+init <- thetas[1,]
+my_gradient_descent <- function(init, X, h) {
   ## set up
   m <- 100
   alpha <- 1e-07
   tol <- 1e-09
   theta0old <- Inf
   theta1old <- Inf
-  theta0new <- init[1]
-  theta1new <- init[2]
-  print(init)
+  theta0new <- as.numeric(init[1])
+  theta1new <- as.numeric(init[2])
   ## iteration time
   i <- 0
   while ((abs(theta0old - theta0new) > tol) || (abs(theta1old - theta1new) > tol)) {
     theta0old <- theta0new
     theta1old <- theta1new
-    theta0new <- theta0old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,1]
-    theta1new <- theta1old - alpha / m * t(X %*% rbind(theta0old, theta1old) - h) %*% X[,2]
+    pred <- X[,1] * theta0old + X[, 2] * theta1old
+    theta0new <- theta0old - alpha / m * sum(pred - h) 
+    theta1new <- theta1old - alpha / m * sum((pred - h) * X[,2])
     i <- i + 1
     if(i > 5e06) break
   }
-  print("Yes")
+  print("yes")
   return(c(theta0new, theta1new, i))
 }
 ## Using parallel computing
 library(parallel)
 cores <- detectCores() - 1
-cl <- makeCluster(cores)
+## log.txt to trace how many runs already completed
+cl <- makeCluster(cores, outfile = "log.txt")
 clusterExport(cl, "X")
 clusterExport(cl, "h")
-system.time(result <- parApply(cl, thetas, 1, my_gradient_descent))
+system.time(result <- parApply(cl, thetas, 1, my_gradient_descent, X, h))
 stopCluster(cl)
 ```
+\begin{table}[]
+\begin{tabular}{lll}
+\hline
+user  & system & elapsed  \\ \hline
+20.56 & 11.47  & 72362.59 \\ \hline
+\end{tabular}
+\end{table}
+```{r include=FALSE}
+# saveRDS(result, "problem_2.RDS")
+result <- readRDS("problem_2.RDS")
+```
+```{r analyze_result}
+min(result[3,]) - 1
+max(result[3,]) - 1
+## beta_0 estimation
+mean(result[1,])
+sd(result[1,])
+
+## beta_1 estimation
+mean(result[2,])
+sd(result[2,])
+```
+
 
 \subsection{Part b}
 
@@ -101,7 +129,7 @@ Least square estimation is subject to find minimizer of $(y - X\hat{\beta})'(y -
 
 \section{Problem 4}
 
-```{r problem_4_set_up}
+```{r problem_4_set_up, cache=TRUE}
 set.seed(12456)
 G <- matrix(sample(c(0,0.5,1),size=16000,replace=T),ncol=10)
 R <- cor(G) # R: 10 * 10 correlation matrix of G
@@ -116,7 +144,7 @@ C <- NULL #save some memory space
 ```
 
 \subsection{Part a}
-```{r Problem_4_a, eval = FALSE}
+```{r Problem_4_a, cache = TRUE}
 object.size(A)
 object.size(B)
 ## around 15 mins
@@ -129,9 +157,8 @@ I think the inverse of matrix can be completed independently and in a different 
 
 \subsection{Part c}
 
-```{r Problem_4_c, message=FALSE}
+```{r Problem_4_c, message=FALSE, eval = FALSE}
 ## Use c++ code to speed up computing speed
-require(RcppArmadillo)
 require(RcppEigen)
 require(inline)
 
@@ -176,6 +203,9 @@ system.time({
 
 ```
 
+Using R built-in function takes up 15 minutes to calculate the theta_hat. However, if I use RcppEigen library, it takes 13 minutes, which is faster.
+
+
 
 \section{Problem 5}
 
@@ -194,6 +224,8 @@ set.seed(12345)
 P4b_data <- matrix(rbinom(10, 1, prob = (31:40)/100), nrow = 10, ncol = 10, byrow = FALSE)
 ```
 
+
+
 \subsection{c}
 
 ```{r problem_5_c}
@@ -202,6 +234,7 @@ apply(P4b_data, 1, compute_proportion)
 ## calculate by column
 apply(P4b_data, 2, compute_proportion)
 ```
+It is not generating 10 independent samples but replicate one sample 10 times.
 
 \subsection{d}
 
@@ -216,6 +249,294 @@ apply(P4d_data, 1, compute_proportion)
 ## calculate by column
 apply(P4d_data, 2, compute_proportion)
 ```
+
+\section{Problem 6}
+```{r import_data_observer}
+dat6 <-readRDS("HW3_data.rds")
+colnames(dat6) <- c("Observer", "x", "y")
+```
+
+
+\subsection{1.}
+
+```{r create_function}
+## coordinates values must be names as "x" and "y"
+my_plot <- function(dat, title, xlab, ylab) {
+  plot(dat$x, dat$y, main = title, xlab = xlab, ylab = ylab)
+}
+```
+
+\subsection{2.}
+```{r make_use}
+## (a)
+my_plot(dat6, "Single scatter plot", "dev1", "dev2")
+## (b)
+dat6_by_observer = split(dat6, f = dat6$Observer)
+trash_can <- lapply(dat6_by_observer, my_plot, "Separate scatter plots", "dev1", "dev2")
+```
+
+\section{Problem 7}
+
+\subsection{Part a}
+```{r download_data, message=FALSE}
+#we are grabbing a SQL set from here
+# http://www.farinspace.com/wp-content/uploads/us_cities_and_states.zip
+#download the files, looks like it is a .zip
+library(downloader) 
+download("http://www.farinspace.com/wp-content/uploads/us_cities_and_states.zip",dest="us_cities_states.zip")
+unzip("us_cities_states.zip", exdir=".")
+#read in data, looks like sql dump, blah
+library(data.table)
+states <- fread(input = "./us_cities_and_states/states.sql",skip = 23,sep = "'", sep2 = ",", header = FALSE)
+states <- states[-8,]
+cities <- fread(input = "./us_cities_and_states/cities_extended.sql",sep = "'", sep2 = ",", header = FALSE)
+
+### YOU do the CITIES
+### I suggest the cities_extended.sql may have everything you need
+### can you figure out how to limit this to the 50?
+```
+
+\subsection{Part b}
+```{r summary_table}
+## remove DC and PR
+city_counts <- data.frame(table(cities$V4)[c(-8, -40)])
+state_city_counts <- data.frame(city_counts, state = tolower(states$V2))
+state_city_counts
+```
+
+\subsection{Part c}
+```{r count}
+letter_count <- data.frame(matrix(NA,nrow=50, ncol=26)) 
+getCount <- function(letter, state_name){
+  temp <- strsplit(tolower(state_name), "") 
+  count <- sum(temp[[1]] == letter)
+  # how to count?? 
+  return(count)
+}
+for(i in 1:50){ letter_count[i,] <- lapply(letters, getCount, states[i, 2]) }
+```
+
+\subsection{Part d}
+```{r draw_maps}
+#https://cran.r-project.org/web/packages/fiftystater/vignettes/fiftystater.html
+library(ggplot2) 
+library(mapproj)
+# crimes <- data.frame(state = tolower(rownames(USArrests)), USArrests)
+# map_id creates the aesthetic mapping to the state name column in your data 
+load("fifty_states.rda")
+p <- ggplot(state_city_counts, aes(map_id = state)) +
+  # map points to the fifty_states shape data
+  geom_map(aes(fill = Freq), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat)+ 
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "bottom",
+        panel.background = element_blank())
+p
+
+letter_highlight <- data.frame(state = tolower(states$V2),
+                               highlight = apply(letter_count >=3, 1, 
+                                                 function(x){ifelse(sum(x) > 0, 1, 0)}) )
+p2 <- ggplot(letter_highlight, aes(map_id = state)) +
+  # map points to the fifty_states shape data
+  geom_map(aes(fill = highlight), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat)+ 
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "bottom",
+        panel.background = element_blank())
+p2
+
+```
+
+\section{Problem 8}
+
+
+```{r import_data_sensory, message=FALSE}
+library(tidyverse)
+sensory_data_raw <- readRDS("sensory_data_raw.RDS")
+sensory_data_tv <- sensory_data_raw %>% 
+  separate(col = "Operator",into = c("Item",as.character(1:5)), sep=" ",fill = "left") %>%
+  fill("Item") %>%
+  slice(2:n()) %>%
+  gather(key = "Operator", value = "value", -Item)
+```
+
+\subsection{Part a}
+When he was "sd.boot[i]= coef(summary(lm(logapple08~logrm08, data = bootdata)))[2,2]". He used logapple08 and logrm08, which are not the variable names of bootdata but existing vector.
+
+\subsection{Part b}
+
+```{r bootstrap}
+set.seed(3456)
+Boot <- 100
+coef_boot <- rep(0,Boot)
+ind_box <- matrix(1:150, ncol = 5)
+system.time({
+  for(i in 1:Boot){
+    # nonparametric bootstrap
+    ind <- c(apply(ind_box, 2, function(x){sample(x, 30, replace = TRUE)}))
+    bootdata <- sensory_data_tv[ind,]
+    coef_boot[i]= coef(lm(as.numeric(value) ~ as.numeric(Operator), data = bootdata))[2]
+  }
+})
+
+```
+
+\subsection{Part c}
+
+```{r bootstrap_by_parallel, message=FALSE}
+library(foreach)
+library(doParallel)
+
+
+#setup parallel backend to use many processors
+cores <- detectCores()
+cl <- makeCluster(cores-1) #not to overload your computer
+registerDoParallel(cl)
+set.seed(3456)
+system.time({
+  coef_boot_par <- foreach(i=1:100, .combine=cbind) %dopar% {
+    ind <- c(apply(ind_box, 2, function(x){sample(x, 30, replace = TRUE)}))
+    bootdata <- sensory_data_tv[ind,]
+    coef(lm(as.numeric(value) ~ as.numeric(Operator), data = bootdata))[2]
+  }
+})
+
+#stop cluster
+stopCluster(cl)
+```
+Since bootstraping samples are independent from each other, it can be completed on different computing node. That is why we can utilize parallel computing method. 
+
+\begin{table}[]
+\begin{tabular}{llllllll} 
+\hline
+         & Min.   & 1st Qu. & Median & Mean   & 3rd Qu. & Max.  & time \\ \hline
+apply    & -0.329 & -0.116  & -0.035 & -0.040 & 0.032   & 0.309 & 0.09 \\ \hline
+parApply & -0.298 & -0.138  & -0.052 & -0.037 & 0.057   & 0.25  & 0.08 \\ \hline
+\end{tabular}
+\end{table}
+
+I think in this particular question, they give similar result and their running time do not differ too much because it is a relatively small loop.
+
+
+\section{Problem 9}
+
+```{r function_plot}
+x <- seq(-30, 2, 0.01)
+y <- 3^x - sin(x) + cos(5*x)
+plot(x, y, type = 'l', main = "f(x) = 3^x - sin(x) + cos(5x)")
+```
+This function has countless roots.
+
+\subsection{Part a}
+```{r find_root, eval=FALSE}
+## target function
+f <- function(x) {
+  value <- 3^x - sin(x) + cos(5*x)
+  return(value)
+}
+
+## derivative of target function
+grad <- function(x) {
+  value <- log(3) * 3^x - cos(x) - 5*sin(5*x)
+  return(value)
+}
+
+find_the_root <- function(interval, tol) {
+  ## tolerance is a single value while interval is a vector of dimension 2
+  left <- interval[1]
+  right <- interval[2]
+  initial_point <- (left + right) / 2
+  ## use while loop to solve the problem
+  prev <- initial_point
+  i <- 1
+  while (abs(f(prev)) > tol ) {
+    ## calculate a new point
+    curr <- prev - f(prev) / grad(prev)
+    ## if the update goes beyond the given interval, assign limit to it
+    if (curr < left) {
+      curr <- left
+    } else if (curr > right) {
+      curr <- right
+    }
+    ## update the previous point and draw it on the plot
+    prev <- curr
+    i <- i + 1
+    if(i > 1e06) break
+  }
+  ## track progress
+  cat("Yes\n",file="log.txt", append = TRUE)
+  return(prev)
+}
+
+## try to find all the roots from -40 to -5
+start_points <- seq(-40, -5, length.out = 1000)
+
+start_intervals <- matrix(c(start_points - 1, start_points + 1), ncol = 2)
+
+system.time({ roots <- apply(start_intervals, 1, find_the_root, 1e-06)})
+
+```
+```{r save_root, include=FALSE}
+# saveRDS(roots, "roots.RDS")
+roots <- readRDS("roots.RDS")
+```
+
+
+\subsection{Part b}
+
+```{r find_root_par, eval=FALSE}
+#setup parallel backend to use many processors
+library(parallel)
+cl <- makeCluster(cores -1)
+clusterExport(cl, "f")
+clusterExport(cl, "grad")
+system.time(roots_par <- parApply(cl, start_intervals, 1, find_the_root, 1e-06))
+stopCluster(cl)
+```
+
+```{r save_root_par, include=FALSE}
+#  saveRDS(roots_par, "roots_par.RDS")
+roots_par <- readRDS("roots_par.RDS")
+```
+
+```{r comparing_roots_and_time, include=FALSE, eval=FALSE}
+summary(roots)
+summary(roots_par)
+```
+
+
+\begin{table}[]
+\begin{tabular}{llllllll} 
+\hline
+         & Min.   & 1st Qu. & Median & Mean   & 3rd Qu. & Max.  & time \\ \hline
+apply    & -39.66 & -31.15  & -22.38 & -22.51 & -13.35  & -4.97 & 129.64 \\ \hline
+parApply & -39.66 & -31.15  & -22.38 & -22.51 & -13.35  & -4.97  & 20.64 \\ \hline
+\end{tabular}
+\end{table}
+
+As we can see, the results both methods got are almost the same. And in this case, parallel computing is substantially faster than regular ones.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

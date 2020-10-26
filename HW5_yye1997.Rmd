@@ -1,0 +1,76 @@
+---
+title: "Homework 5"
+author: "Youhui Ye"
+date: "10/23/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+\section{Problem 3}
+
+```{r import_and_tidy_data, message=FALSE, warning=FALSE, error=FALSE, cache = TRUE}
+library(tidyverse)
+## import data
+dat <- read_csv("Edstats_csv/EdstatsData.csv")
+dim(dat)[1]
+
+## tidy data using functions in tidyverse
+tidy_dat <- dat %>% 
+  select(-70) %>% # delete empty column
+  gather(key = "Year", value = "Value", 5:69, na.rm = TRUE)
+dim(tidy_dat)[1]
+```
+There are 886930 data points in the complete data set. After I reshaped the data, there are 4205910 data points. 
+
+
+```{r summary_table, cache=TRUE}
+table1 <- tidy_dat %>% 
+  filter(get('Country Code') %in% c("CHN", "USA") ) %>% 
+  group_by(`Indicator Code`, `Country Code`) %>% 
+  summarise(Mean = mean(Value), "Standard Deviation" = sd(Value), .groups = "drop")
+## First 10 row are displayed
+knitr::kable(table1[1:10,])
+```
+
+
+\section{Problem 4}
+
+```{r USA_GDP_Regression ,message=FALSE}
+library(tidyverse)
+USA_GDP <- tidy_dat %>%  
+  filter(get('Country Code') == "USA" & get('Indicator Name') == "GDP at market prices (current US$)" ) %>%
+  select(Year, Value)
+
+library(MASS) # studendized residuals
+lmfit <- lm(sqrt(Value) ~ as.numeric(Year), data = USA_GDP)
+par(mfrow = c(2, 3))
+plot(lmfit$fitted.values, lmfit$residuals, xlab = "Predicted Value", ylab = "Residual")
+plot(lmfit$fitted.values, studres(lmfit), xlab = "Predicted Value", ylab = "RStudent")
+plot(hatvalues(lmfit), studres(lmfit), xlab = "Leverage", ylab = "RStudent")
+qqnorm(lmfit$residuals)
+qqline(lmfit$residuals)
+plot(lmfit$fitted.values, USA_GDP$Value, xlab = "Predicted Value", ylab = "GDP")
+plot(cooks.distance(lmfit), ylab = "Cook's Distance", xlab = "Observation")
+```
+
+
+\section{Problem 5}
+```{r ggplot_version, message=FALSE, warning=FALSE}
+library(ggfortify)
+autoplot(lmfit, which = 1:6, nrow = 2)
+```
+
+
+
+
+
+
+
+
+
+
+
